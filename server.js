@@ -184,7 +184,7 @@ app.post('/api/cut', upload.single('video'), async (req, res) => {
       const partials = await fsp.readdir(outputDir);
       await Promise.all(partials.filter(name => name.startsWith(prefix)).map(name => fsp.unlink(path.join(outputDir, name)).catch(() => {})));
       await render(ffmpeg(req.file.path)
-        .outputOptions(['-map 0:v:0', '-map 0:a?', '-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', `-force_key_frames expr:gte(t,n_forced*${partDuration})`, '-f segment', `-segment_time ${partDuration}`, '-reset_timestamps 1', '-movflags +faststart'])
+        .outputOptions(['-map 0:v:0', '-map 0:a?', '-c:v libx264', '-preset ultrafast', '-threads 0', '-crf 23', '-c:a aac', `-force_key_frames expr:gte(t,n_forced*${partDuration})`, '-f segment', `-segment_time ${partDuration}`, '-reset_timestamps 1', '-movflags +faststart'])
         .save(pattern), jobId);
     }
     const outputs = (await fsp.readdir(outputDir))
@@ -234,7 +234,7 @@ app.post('/api/cut-local', upload.none(), async (req, res) => {
     } catch (error) {
       if (error.cancelled) throw error;
       await Promise.all(outputNames.map(name => fsp.unlink(path.join(sourceFolder, name)).catch(() => {})));
-      await render(ffmpeg(sourcePath).outputOptions(['-map 0:v:0', '-map 0:a?', '-c:v libx264', '-preset veryfast', '-crf 23', '-c:a aac', `-force_key_frames expr:gte(t,n_forced*${partDuration})`, '-f segment', `-segment_time ${partDuration}`, '-segment_start_number 1', '-reset_timestamps 1', '-movflags +faststart']).save(pattern), jobId);
+      await render(ffmpeg(sourcePath).outputOptions(['-map 0:v:0', '-map 0:a?', '-c:v libx264', '-preset ultrafast', '-threads 0', '-crf 23', '-c:a aac', `-force_key_frames expr:gte(t,n_forced*${partDuration})`, '-f segment', `-segment_time ${partDuration}`, '-segment_start_number 1', '-reset_timestamps 1', '-movflags +faststart']).save(pattern), jobId);
     }
     const outputs = outputNames.map(name => path.join(sourceFolder, name));
     await Promise.all(outputs.map(file => fsp.access(file)));
@@ -268,7 +268,7 @@ app.post('/api/combine-local', upload.none(), async (req, res) => {
       const { width, height } = await getVideoSize(sourcePaths[0]);
       const inputs = sourcePaths.map((_file, index) => `[${index}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1[v${index}];[${index}:a]aresample=async=1[a${index}]`).join(';');
       const joined = sourcePaths.map((_file, index) => `[v${index}][a${index}]`).join('') + `concat=n=${sourcePaths.length}:v=1:a=1[v][a]`;
-      await render(command.complexFilter(`${inputs};${joined}`).outputOptions(['-map [v]', '-map [a]', '-c:v libx264', '-preset veryfast', '-crf 20', '-c:a aac', '-movflags +faststart']).save(output), jobId);
+      await render(command.complexFilter(`${inputs};${joined}`).outputOptions(['-map [v]', '-map [a]', '-c:v libx264', '-preset ultrafast', '-threads 0', '-crf 20', '-c:a aac', '-movflags +faststart']).save(output), jobId);
     }
     cleanLater([listFile]);
     res.json({ localSaved: true, files: [{ name: path.basename(output), path: output }] });
@@ -306,7 +306,7 @@ app.post('/api/combine', upload.array('videos', 12), async (req, res) => {
       const joined = files.map((_file, index) => `[v${index}][a${index}]`).join('') + `concat=n=${files.length}:v=1:a=1[v][a]`;
       await render(command
         .complexFilter(`${inputs};${joined}`)
-        .outputOptions(['-map [v]', '-map [a]', '-c:v libx264', '-preset veryfast', '-crf 20', '-c:a aac', '-movflags +faststart'])
+        .outputOptions(['-map [v]', '-map [a]', '-c:v libx264', '-preset ultrafast', '-threads 0', '-crf 20', '-c:a aac', '-movflags +faststart'])
         .save(output), jobId);
     }
     cleanLater([...files.map(file => file.path), listFile, output]);

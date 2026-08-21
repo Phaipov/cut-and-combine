@@ -49,32 +49,43 @@ setLanguage(language);
 let progressTimer;
 let activeRequest;
 let activeJobId = '';
+let isUploading = false;
+let uploadPercent = 0;
+
 function showProgress() {
-  let progress = 4;
   $('#process-box').hidden = false;
-  const update = () => {
-    $('#progress-bar').style.width = `${progress}%`;
-    $('#process-percent').textContent = `${Math.round(progress)}%`;
-    $('#process-label').textContent = progress > 82 ? 'Preparing your files…' : progress > 18 ? 'Cutting video parts…' : 'Uploading video…';
+  $('#cancel-process').disabled = false;
+  const update = (percent, label, note) => {
+    $('#progress-bar').style.width = `${percent}%`;
+    $('#process-percent').textContent = `${Math.round(percent)}%`;
+    if (label) $('#process-label').textContent = label;
+    if (note) $('#process-note').textContent = note;
   };
-  update();
+  update(4, 'Uploading video…', 'Please keep this window open.');
+
   progressTimer = setInterval(async () => {
+    if (isUploading) {
+      update(uploadPercent * 0.4, `Uploading video… ${Math.round(uploadPercent)}%`, 'Uploading to server…');
+      return;
+    }
     try {
+      if (!activeJobId) return;
       const response = await fetch(`/api/progress/${activeJobId}`);
       const status = await response.json();
-      if (status.active && status.percent > 0) progress = Math.max(progress, status.percent);
-      else progress = Math.min(20, progress + .5);
-      update();
+      if (status.active && status.percent > 0) {
+        const total = Math.min(99, 40 + status.percent * 0.58);
+        update(total, total > 88 ? 'Preparing files…' : 'Processing video…', 'Processing on server…');
+      }
     } catch (_) {}
-  }, 700);
+  }, 600);
 }
 
 function finishProgress(success) {
   clearInterval(progressTimer);
   $('#progress-bar').style.width = success ? '100%' : '0%';
   $('#process-percent').textContent = success ? '100%' : '0%';
-  $('#process-label').textContent = success ? 'Cut completed!' : 'Could not complete the cut';
-  $('#process-note').textContent = success ? 'Your video files are ready.' : 'Please try again.';
+  $('#process-label').textContent = success ? 'Completed!' : 'Could not complete the process';
+  $('#process-note').textContent = success ? 'Your video is ready.' : 'Please try again.';
   setTimeout(() => { $('#process-box').hidden = true; }, success ? 3500 : 5000);
 }
 
@@ -212,52 +223,117 @@ for (const [dropId, inputId, handler] of [['cut-drop', 'cut-file', files => show
   drop.addEventListener('drop', event => handler(event.dataTransfer.files));
 }
 
-async function render(url, form, button) {
-  button.disabled = true;
-  const original = button.innerHTML;
-  let completed = false;
-  activeJobId = crypto.randomUUID();
-  activeRequest = new AbortController();
-  form.append('jobId', activeJobId);
-  $('#cancel-process').disabled = false;
-  showProgress();
-  button.innerHTML = 'Making magic… <span>✦</span>';
-  try {
-    const response = await fetch(url, { method: 'POST', body: form, signal: activeRequest.signal });
-    if (!response.ok) throw new Error((await response.json()).error || 'Something went wrong.');
-    if (url.includes('/cut') || url.includes('/combine-local')) {
-      const { files, localSaved } = await response.json();
-      if (localSaved) {
-        // Desktop fast path already wrote the parts beside the original video.
-      } else for (const file of files) {
-        const videoResponse = await fetch(file.url);
-        const blob = await videoResponse.blob();
-        if (outputFolder) {
-          const handle = await outputFolder.getFileHandle(file.name, { create: true });
-          const writable = await handle.createWritable();
-          await writable.write(blob);
-          await writable.close();
-        } else {
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.download = file.name;
-          link.click();
-          URL.revokeObjectURL(link.href);
+function render(url, form, button) {
+  return new Promise((resolve) => {
+    button.disabled = true;
+    const original = button.innerHTML;
+    let completed = false;
+    activeJobId = crypto.randomUUID();
+    form.append('jobId', activeJobId);
+    isUploading = true;
+    uploadPercent = 0;
+
+    const xhr = new XMLHttpRequest();
+    activeRequest = xhr;
+    showProgress();
+    button.innerHTML = 'Making magic… <span>✦</span>';
+
+    if (xhr.upload) {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          uploadPercent = Math.min(99, (e.loaded / e.total) * 100);
+          $('#progress-bar').style.width = `${Math.round(uploadPercent * 0.4)}%`;
+          $('#process-percent').textContent = `${Math.round(uploadPercent)}%`;
+          $('#process-label').textContent = `Uploading video… ${Math.round(uploadPercent)}%`;
         }
-      }
-      say(localSaved ? `${url.includes('combine') ? 'បានភ្ជាប់វីដេអូជោគជ័យហើយ!' : 'កាត់បានជោគជ័យហើយ!'} បានរក្សាទុកនៅ folder ដើម` : outputFolder ? `កាត់បានជោគជ័យហើយ! បានរក្សាទុក ${files.length} វីដេអូទៅ ${outputFolder.name}` : 'កាត់បានជោគជ័យហើយ! កំពុងទាញយកវីដេអូ');
-    } else {
-      const blob = await response.blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'combined-video.mp4';
-      link.click();
-      URL.revokeObjectURL(link.href);
-      say('Your video is ready — enjoy!');
+      });
+      xhr.upload.addEventListener('load', () => {
+        isUploading = false;
+        $('#process-label').textContent = 'Processing on server…';
+      });
     }
-    completed = true;
-  } catch (error) { if (error.name !== 'AbortError') say(error.message, true); }
-  finally { if (activeRequest) finishProgress(completed); activeRequest = null; activeJobId = ''; button.disabled = false; button.innerHTML = original; }
+
+    xhr.open('POST', url);
+    xhr.responseType = (url.includes('/cut') || url.includes('/combine-local')) ? 'json' : 'blob';
+
+    xhr.onload = async () => {
+      isUploading = false;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          if (url.includes('/cut') || url.includes('/combine-local')) {
+            const data = xhr.response;
+            if (data.localSaved) {
+              // Desktop fast path
+            } else if (data.files) {
+              for (const file of data.files) {
+                const videoResponse = await fetch(file.url);
+                const blob = await videoResponse.blob();
+                if (outputFolder) {
+                  const handle = await outputFolder.getFileHandle(file.name, { create: true });
+                  const writable = await handle.createWritable();
+                  await writable.write(blob);
+                  await writable.close();
+                } else {
+                  const link = document.createElement('a');
+                  link.href = URL.createObjectURL(blob);
+                  link.download = file.name;
+                  link.click();
+                  URL.revokeObjectURL(link.href);
+                }
+              }
+            }
+            say(data.localSaved ? `${url.includes('combine') ? 'បានភ្ជាប់វីដេអូជោគជ័យហើយ!' : 'កាត់បានជោគជ័យហើយ!'} បានរក្សាទុកនៅ folder ដើម` : outputFolder ? `កាត់បានជោគជ័យហើយ! បានរក្សាទុក ${data.files?.length || 0} វីដេអូទៅ ${outputFolder.name}` : 'កាត់បានជោគជ័យហើយ! កំពុងទាញយកវីដេអូ');
+          } else {
+            const blob = xhr.response;
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'combined-video.mp4';
+            link.click();
+            URL.revokeObjectURL(link.href);
+            say('Your video is ready — enjoy!');
+          }
+          completed = true;
+        } catch (err) {
+          say(err.message, true);
+        }
+      } else {
+        let errMessage = 'Something went wrong.';
+        try {
+          if (typeof xhr.response === 'object' && xhr.response?.error) errMessage = xhr.response.error;
+        } catch (_) {}
+        say(errMessage, true);
+      }
+      finishProgress(completed);
+      activeRequest = null;
+      activeJobId = '';
+      button.disabled = false;
+      button.innerHTML = original;
+      resolve();
+    };
+
+    xhr.onerror = () => {
+      isUploading = false;
+      say('Network error occurred.', true);
+      finishProgress(false);
+      activeRequest = null;
+      activeJobId = '';
+      button.disabled = false;
+      button.innerHTML = original;
+      resolve();
+    };
+
+    xhr.onabort = () => {
+      isUploading = false;
+      finishProgress(false);
+      activeRequest = null;
+      activeJobId = '';
+      button.disabled = false;
+      button.innerHTML = original;
+      resolve();
+    };
+
+    xhr.send(form);
+  });
 }
 
 $('#cut-submit').addEventListener('click', () => {
