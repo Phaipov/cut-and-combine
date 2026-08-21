@@ -1,0 +1,12 @@
+node_modules/
+uploads/
+outputs/
+dist/
+release/
+release-*/
+runtime-build-test/
+tools-*/
+*.7z
+*.exe
+.env
+.DS_Store

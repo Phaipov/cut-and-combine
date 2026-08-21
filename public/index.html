@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>P-Two7 — Cut & Combine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=DM+Sans:wght@400;500;700&family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header>
+        <a class="brand" href="#"><span class="brand-icon">✂</span><span>P-<span>Two7</span></span></a>
+        <div class="header-actions"><a class="telegram-link" href="https://t.me/povcoding" target="_blank" rel="noopener noreferrer" title="Join Telegram group">Telegram</a><div class="language-switch" aria-label="Language"><button class="active" data-language="en" type="button">ENG</button><button data-language="kh" type="button">ខ្មែរ</button></div></div>
+      </header>
+
+      <section class="tool-switch" aria-label="Choose a tool">
+        <button class="active" data-tool="cut"><span>✂</span> <i data-i18n="cutTab">Cut a clip</i></button>
+        <button data-tool="combine"><span>⊹</span> <i data-i18n="combineTab">Combine clips</i></button>
+      </section>
+
+      <section class="editor-card">
+        <div id="cut-panel" class="tool-panel active">
+          <div class="panel-heading"><div class="number">01</div><div><h2 data-i18n="cutTitle">Cut your video</h2><p data-i18n="cutSubtitle">Keep just the good bit.</p></div></div>
+          <label class="upload-box" id="cut-drop"><input id="cut-file" type="file" accept="video/*" hidden><span class="upload-icon">↑</span><strong data-i18n="dropVideo">Drop your video here</strong><small data-i18n="browseFiles">or browse files · MP4, MOV, WebM</small></label>
+          <div class="selected-file" id="cut-selected" hidden></div>
+          <div class="trim-controls" id="trim-controls" hidden>
+            <video id="cut-preview" controls></video>
+            <div class="split-control"><label for="cut-count"><span data-i18n="partCount">Number of video parts</span> <input id="cut-count" type="number" min="1" max="20" step="1" value="2"></label><p data-i18n="splitHelp">We’ll split your video into equal-length parts.</p><em id="duration-note"></em></div>
+          </div>
+          <button class="action-button coral" id="cut-submit" disabled><b data-i18n="cutButton">Cut my clips</b> <span>→</span></button>
+        </div>
+
+        <div id="combine-panel" class="tool-panel">
+          <div class="panel-heading"><div class="number purple">02</div><div><h2 data-i18n="combineTitle">Combine your videos</h2><p data-i18n="combineSubtitle">Put your moments in order.</p></div></div>
+          <label class="upload-box lavender" id="combine-drop"><input id="combine-files" type="file" accept="video/*" multiple hidden><span class="upload-icon">+</span><strong data-i18n="addVideos">Add two or more videos</strong><small data-i18n="combineHelp">Choose files in the order you want them played</small></label>
+          <ol class="clip-list" id="clip-list"></ol>
+          <label class="fade-control"><span data-i18n="fadeTransition">Fade transition</span> <input id="fade-duration" type="number" min="0" max="10" step="0.1" value="0"> <span data-i18n="seconds">seconds</span><small data-i18n="fadeHint">0 = no fade (fastest)</small></label>
+          <button class="action-button grape" id="combine-submit" disabled><b data-i18n="combineButton">Combine my clips</b> <span>→</span></button>
+        </div>
+        <div class="save-location"><div><span>⌑</span><p><b data-i18n="saveLocation">Save location</b><small id="save-folder-name" data-i18n="defaultFolder">Downloads folder (default)</small></p></div><div class="location-actions"><button id="open-folder" type="button" data-i18n="openFolder">Open folder</button><button id="choose-folder" type="button" data-i18n="chooseFolder">Choose folder</button></div></div>
+        <div class="process-box" id="process-box" hidden><div class="process-top"><b id="process-label">Preparing video…</b><span id="process-percent">0%</span></div><div class="progress-track"><div id="progress-bar"></div></div><div class="process-bottom"><small id="process-note">Please keep this window open.</small><button id="cancel-process" type="button" data-i18n="cancel">Cancel</button></div></div>
+      </section>
+    </main>
+    <div class="toast" id="toast" role="status"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

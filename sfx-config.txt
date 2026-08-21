@@ -1,0 +1,5 @@
+;!@Install@!UTF-8!
+Title="P-Two7"
+RunProgram="hidcon:P-Two7.exe"
+GUIMode="2"
+;!@InstallEnd@!
