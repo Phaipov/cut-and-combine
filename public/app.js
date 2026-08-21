@@ -91,10 +91,22 @@ $('#cancel-process').addEventListener('click', async () => {
   say('Process cancelled.');
 });
 
-document.querySelectorAll('[data-tool]').forEach(button => button.addEventListener('click', () => {
-  document.querySelectorAll('[data-tool]').forEach(item => item.classList.toggle('active', item === button));
-  document.querySelectorAll('.tool-panel').forEach(panel => panel.classList.toggle('active', panel.id === `${button.dataset.tool}-panel`));
-}));
+function switchTab(tool) {
+  if (!tool) return;
+  document.querySelectorAll('[data-tool]').forEach(item => {
+    item.classList.toggle('active', item.dataset.tool === tool);
+  });
+  document.querySelectorAll('.tool-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === `${tool}-panel`);
+  });
+}
+
+document.querySelectorAll('[data-tool]').forEach(button => {
+  button.addEventListener('click', (e) => {
+    e.preventDefault();
+    switchTab(button.dataset.tool);
+  });
+});
 
 function showCutFile(file) {
   if (!file) return;
